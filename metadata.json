@@ -1,0 +1,7 @@
+{
+  "name": "NeuAscii Cam",
+  "description": "A real-time webcam to ASCII art converter featuring a sleek Neumorphic design, adjustable density, and contrast controls.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
