@@ -20,11 +20,14 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install and Build
-        run: |
-          rm -rf node_modules
-          npm install
-          npm run build
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fix Rollup optional dependency (npm bug #4828)
+        run: npm install @rollup/rollup-linux-x64-gnu --no-save
+
+      - name: Build
+        run: npm run build
 
       - name: Add .nojekyll
         run: touch dist/.nojekyll
