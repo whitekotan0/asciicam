@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Play, Square, Camera, Settings2, Moon, Sun } from 'lucide-react';
+import { Play, Square, Camera, Settings2, Moon, Sun, Download, X } from 'lucide-react';
 import { Card, Button, Slider } from './components/NeumorphicUI';
 import { convertToAscii } from './utils/ascii';
 
@@ -13,6 +13,7 @@ const App: React.FC = () => {
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
+  const [snapshot, setSnapshot] = useState<string | null>(null);
   
   // Controls
   const [density, setDensity] = useState(100); 
@@ -164,6 +165,22 @@ const App: React.FC = () => {
     }
   };
 
+  const takeSnapshot = useCallback(() => {
+    if (renderCanvasRef.current && streaming) {
+      const data = renderCanvasRef.current.toDataURL('image/png');
+      setSnapshot(data);
+    }
+  }, [streaming]);
+
+  const downloadSnapshot = useCallback(() => {
+    if (snapshot) {
+      const link = document.createElement('a');
+      link.href = snapshot;
+      link.download = `asciicam-${new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")}.png`;
+      link.click();
+    }
+  }, [snapshot]);
+
   // Background Gradient Classes
   const mainBgClass = darkMode 
     ? "bg-gradient-to-br from-gray-900 to-gray-800 text-gray-200" 
@@ -236,6 +253,15 @@ const App: React.FC = () => {
               {streaming ? <Square className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
               {streaming ? "Stop Feed" : "Start Camera"}
             </Button>
+            <Button 
+              darkMode={darkMode}
+              onClick={takeSnapshot}
+              disabled={!streaming}
+              className={`w-full ${!streaming ? 'opacity-50 cursor-not-allowed' : ''} ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}
+            >
+              <Camera className="w-5 h-5" />
+              Snapshot
+            </Button>
           </Card>
         </div>
 
@@ -274,8 +300,37 @@ const App: React.FC = () => {
             </div>
           </Card>
         </div>
-
       </div>
+
+      {/* Snapshot Modal */}
+      {snapshot && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+           <div className="absolute inset-0" onClick={() => setSnapshot(null)} />
+           <Card darkMode={darkMode} className="relative z-10 w-full max-w-4xl max-h-[90vh] flex flex-col p-4 md:p-6 overflow-hidden shadow-2xl">
+              <div className="flex justify-between items-center mb-4">
+                 <h2 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Snapshot Preview</h2>
+                 <button onClick={() => setSnapshot(null)} className={`p-2 rounded-full hover:bg-black/10 transition ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    <X className="w-6 h-6" />
+                 </button>
+              </div>
+              
+              <div className="flex-1 min-h-0 relative bg-black/5 rounded-lg overflow-hidden flex items-center justify-center border border-white/10">
+                 <img src={snapshot} alt="Snapshot" className="max-w-full max-h-full object-contain" />
+              </div>
+
+              <div className="mt-6 flex gap-4 justify-end">
+                 <Button darkMode={darkMode} onClick={() => setSnapshot(null)}>
+                    Discard
+                 </Button>
+                 <Button darkMode={darkMode} onClick={downloadSnapshot} className="!text-indigo-500">
+                    <Download className="w-5 h-5" />
+                    Download
+                 </Button>
+              </div>
+           </Card>
+        </div>
+      )}
+
     </div>
   );
 };
