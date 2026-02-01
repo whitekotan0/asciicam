@@ -70,8 +70,23 @@ const App: React.FC = () => {
       customRamp: asciiMode === 'CUSTOM' ? customRamp : undefined
     });
 
-    const canvasWidth = renderCanvas.width;
-    const canvasHeight = renderCanvas.height;
+    // Get actual container dimensions
+    const container = renderCanvas.parentElement;
+    if (!container) return;
+    
+    const containerRect = container.getBoundingClientRect();
+    const canvasWidth = containerRect.width;
+    const canvasHeight = containerRect.height;
+    
+    // Set canvas size to match container exactly
+    const dpr = window.devicePixelRatio || 1;
+    if (renderCanvas.width !== canvasWidth * dpr || renderCanvas.height !== canvasHeight * dpr) {
+      renderCanvas.width = canvasWidth * dpr;
+      renderCanvas.height = canvasHeight * dpr;
+      renderCanvas.style.width = `${canvasWidth}px`;
+      renderCanvas.style.height = `${canvasHeight}px`;
+      renderCtx.scale(dpr, dpr);
+    }
     
     // Use custom colors or default theme colors
     const currentBg = darkMode ? bgColor : '#f5f5f5';
@@ -82,14 +97,20 @@ const App: React.FC = () => {
     
     renderCtx.fillStyle = currentText;
     
+    // Calculate font size to fit the text perfectly
     const charWidthPx = canvasWidth / width;
-    const fontSize = charWidthPx / 0.6; 
+    const charHeightPx = canvasHeight / height;
+    const fontSize = Math.min(charWidthPx / 0.6, charHeightPx);
     
     renderCtx.font = `${fontSize}px 'Fira Code', monospace`;
     renderCtx.textBaseline = 'top';
 
+    // Center vertically if needed
+    const totalHeight = height * fontSize;
+    const offsetY = Math.max(0, (canvasHeight - totalHeight) / 2);
+
     asciiLines.forEach((line, index) => {
-      renderCtx.fillText(line, 0, index * fontSize);
+      renderCtx.fillText(line, 0, offsetY + index * fontSize);
     });
 
     requestRef.current = requestAnimationFrame(processFrame);
@@ -99,11 +120,15 @@ const App: React.FC = () => {
     const handleResize = () => {
       if (renderCanvasRef.current && renderCanvasRef.current.parentElement) {
         const rect = renderCanvasRef.current.parentElement.getBoundingClientRect();
-        renderCanvasRef.current.width = rect.width * window.devicePixelRatio;
-        renderCanvasRef.current.height = rect.height * window.devicePixelRatio;
+        const dpr = window.devicePixelRatio || 1;
+        
+        renderCanvasRef.current.width = rect.width * dpr;
+        renderCanvasRef.current.height = rect.height * dpr;
+        renderCanvasRef.current.style.width = `${rect.width}px`;
+        renderCanvasRef.current.style.height = `${rect.height}px`;
         
         const ctx = renderCanvasRef.current.getContext('2d');
-        if (ctx) ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        if (ctx) ctx.scale(dpr, dpr);
       }
     };
     
@@ -124,11 +149,12 @@ const App: React.FC = () => {
   }, [streaming, processFrame]);
 
   useEffect(() => {
-    if (!streaming && renderCanvasRef.current) {
+    if (!streaming && renderCanvasRef.current && renderCanvasRef.current.parentElement) {
         const renderCtx = renderCanvasRef.current.getContext('2d');
+        const rect = renderCanvasRef.current.parentElement.getBoundingClientRect();
         if (renderCtx) {
             renderCtx.fillStyle = darkMode ? bgColor : '#f5f5f5';
-            renderCtx.fillRect(0, 0, renderCanvasRef.current.width, renderCanvasRef.current.height);
+            renderCtx.fillRect(0, 0, rect.width, rect.height);
         }
     }
   }, [darkMode, streaming, bgColor]);
