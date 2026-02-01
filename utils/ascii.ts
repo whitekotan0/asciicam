@@ -1,62 +1,50 @@
 /**
- * Standard ASCII character ramp from dark to light.
- * We will reverse this based on background color (dark text on light bg needs dark chars for low brightness).
+ * Standard ASCII character ramp.
+ * Index 0 = ' ' (Visual Empty/Low density)
+ * Index Max = '@' (Visual Full/High density)
  */
-const CHAR_RAMP = " .:-=+*#%@"; // Space (light) to @ (dark)
+const CHAR_RAMP = " .:-=+*#%@";
 
 export interface AsciiConfig {
   width: number;
   height: number;
   contrast: number; // 0 to 2
   brightness: number; // -1 to 1
-  inverted: boolean;
+  inverted: boolean; // true = Dark Mode (Light pixels are characters), false = Light Mode (Dark pixels are characters)
 }
 
 /**
- * Calculates the ASCII character for a given brightness value.
- * @param gray - Grayscale value from 0 to 255
- * @param contrast - Contrast factor
- * @param brightness - Brightness offset
+ * Calculates the ASCII character for a given value.
  */
-const getChar = (gray: number, contrast: number, brightness: number): string => {
+const getChar = (value: number, contrast: number, brightness: number): string => {
   // 1. Normalize to 0-1
-  let value = gray / 255;
+  let norm = value / 255;
 
   // 2. Apply Brightness
-  value += brightness;
+  norm += brightness;
 
   // 3. Apply Contrast
-  // Formula: factor = (259 * (contrast + 255)) / (255 * (259 - contrast))
-  // But here we use a simplified linear contrast stretch around 0.5 center
+  // Center around 0.5
   if (contrast !== 1) {
-    value = (value - 0.5) * contrast + 0.5;
+    norm = (norm - 0.5) * contrast + 0.5;
   }
 
   // 4. Clamp
-  value = Math.max(0, Math.min(1, value));
+  norm = Math.max(0, Math.min(1, norm));
 
   // 5. Map to Character Ramp
-  const index = Math.floor(value * (CHAR_RAMP.length - 1));
+  const index = Math.floor(norm * (CHAR_RAMP.length - 1));
   return CHAR_RAMP[index];
 };
 
 /**
  * Processes a video frame and returns the ASCII representation.
- * 
- * UNDER THE HOOD:
- * 1. We receive raw pixel data from a downscaled canvas (ImageData).
- *    The browser's canvas `drawImage` has already handled the heavy lifting of 
- *    averaging pixels (bilinear filtering) when we drew the large video frame 
- *    onto the tiny processing canvas.
- * 2. We iterate through the RGBA buffer.
- * 3. We calculate the perceived brightness (Luma) of each pixel using standard weights.
- * 4. We map that brightness to a character from our ramp.
  */
 export const convertToAscii = (
   frameData: ImageData, 
   config: AsciiConfig
 ): string[] => {
-  const { width, height, contrast, brightness } = config;
+  const { width, height, contrast, brightness, inverted } = config;
   const data = frameData.data;
   const lines: string[] = [];
 
@@ -67,19 +55,23 @@ export const convertToAscii = (
       const r = data[offset];
       const g = data[offset + 1];
       const b = data[offset + 2];
-      // const a = data[offset + 3]; // Alpha ignored
 
-      // Calculate Luma (Standard Rec. 601)
-      // Human eyes are more sensitive to Green, then Red, then Blue.
+      // Calculate Luma
       const gray = 0.299 * r + 0.587 * g + 0.114 * b;
 
-      // Invert logic: If we are drawing DARK text on LIGHT background (Neumorphism),
-      // A high 'gray' value (white pixel) should be a SPACE (empty).
-      // A low 'gray' value (black pixel) should be an '@' (full).
-      // So we invert the gray input for the getChar function.
-      const finalGray = 255 - gray;
+      // Mode Logic:
+      // Dark Mode (inverted=true): Black BG. We want White pixels to be '@' (High index). 
+      //   Input 255 (White) -> target high index. 
+      //   Input 0 (Black) -> target low index.
+      //   So we use 'gray' directly.
+      // Light Mode (inverted=false): White BG. We want Dark pixels to be '@' (ink).
+      //   Input 255 (White) -> target low index (Space).
+      //   Input 0 (Black) -> target high index.
+      //   So we use '255 - gray'.
+      
+      const targetValue = inverted ? gray : 255 - gray;
 
-      line += getChar(finalGray, contrast, brightness);
+      line += getChar(targetValue, contrast, brightness);
     }
     lines.push(line);
   }

@@ -1,20 +1,34 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# AsciiCam
 
-# Run and deploy your AI Studio app
+AsciiCam is a real-time web application that converts your webcam feed into ASCII art. It features a sleek UI with both Light (Neumorphic) and Dark modes.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/drive/1xrwNjrlKi4S9l4XFYU9M0u0fv-m9Dstl
+- **Real-time Conversion**: Uses HTML5 Canvas for high-performance (60 FPS) ASCII rendering.
+- **Dual Theme Support**:
+  - **Light Mode**: High-contrast Neumorphic design with crisp edges.
+  - **Dark Mode**: Deep gradient background with inverted ASCII logic.
+- **Adjustable Settings**:
+  - **Density**: Control the resolution of the ASCII output.
+  - **Contrast & Brightness**: Fine-tune the image processing to suit lighting conditions.
 
-## Run Locally
+## Technologies Used
 
-**Prerequisites:**  Node.js
+- React 19
+- TypeScript
+- Tailwind CSS
+- Lucide React (Icons)
 
+## How It Works
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. **Video Capture**: The app accesses the webcam via `navigator.mediaDevices.getUserMedia`.
+2. **Processing**: Frames are drawn to a hidden, low-resolution canvas.
+3. **ASCII Mapping**: Pixel brightness (Luma) is calculated and mapped to a character density ramp (e.g., ` .:-=+*#%@`).
+4. **Rendering**: The resulting characters are drawn to the visible high-resolution canvas using a monospace font.
+
+## Running Locally
+
+This project is a single-file React structure designed for environments like Google IDX or similar web-based editors, but can be split into standard Create React App / Vite structure easily.
+
+1. Ensure `index.html` and `index.tsx` are served correctly.
+2. The project uses ES Modules via CDN (`esm.sh`) for dependencies, so no `npm install` is strictly necessary for the browser runtime, though a local server is required.

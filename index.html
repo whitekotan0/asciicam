@@ -3,46 +3,27 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>NeuAscii Cam</title>
+    <title>AsciiCam</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
       body {
-        background-color: #e0e5ec;
+        margin: 0;
         font-family: 'Nunito', sans-serif;
-        color: #4a5568;
       }
-      /* Custom slider styling for Neumorphism */
-      .neu-slider {
+      /* Custom slider styling for Neumorphism - Dynamic variables handled in React usually, 
+         but we will use specific classes for light/dark in the components */
+      .range-input {
         -webkit-appearance: none;
         background: transparent;
       }
-      .neu-slider::-webkit-slider-runnable-track {
-        width: 100%;
-        height: 12px;
-        background: #e0e5ec;
-        border-radius: 9999px;
-        box-shadow: inset 5px 5px 10px #bec3c9, inset -5px -5px 10px #ffffff;
-      }
-      .neu-slider::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        height: 24px;
-        width: 24px;
-        border-radius: 50%;
-        background: #e0e5ec;
-        margin-top: -6px; /* center thumb */
-        box-shadow: 4px 4px 8px #bec3c9, -4px -4px 8px #ffffff;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-      .neu-slider::-webkit-slider-thumb:hover {
-        transform: scale(1.1);
-      }
-      .neu-slider:focus {
+      .range-input:focus {
         outline: none;
       }
+      /* Track and Thumb styles will be injected via JS or Tailwind classes where possible, 
+         or we keep generic structure here and color via component props */
     </style>
   <script type="importmap">
 {

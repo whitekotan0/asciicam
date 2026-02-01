@@ -1,55 +1,115 @@
 import React, { ButtonHTMLAttributes, InputHTMLAttributes } from 'react';
 
-// Common shadow styles
-const OUTER_SHADOW = "shadow-[9px_9px_16px_rgb(163,177,198,0.6),-9px_-9px_16px_rgba(255,255,255,0.5)]";
-const INNER_SHADOW = "shadow-[inset_6px_6px_10px_0_rgba(163,177,198,0.7),inset_-6px_-6px_10px_0_rgba(255,255,255,0.8)]";
+// --- Light Mode Styles ---
+// Enhanced visibility: darker shadows, slight border for definition
+const LIGHT_BG = "bg-[#e0e5ec]";
+const LIGHT_TEXT = "text-gray-700";
+const LIGHT_OUTER_SHADOW = "shadow-[7px_7px_14px_#bec3c9,-7px_-7px_14px_#ffffff]"; 
+const LIGHT_INNER_SHADOW = "shadow-[inset_6px_6px_10px_#bec3c9,inset_-6px_-6px_10px_#ffffff]";
+const LIGHT_BORDER = "border border-white/40"; // Subtle highlight
 
-interface CardProps {
+// --- Dark Mode Styles ---
+const DARK_BG = "bg-gray-800";
+const DARK_TEXT = "text-gray-200";
+const DARK_OUTER_SHADOW = "shadow-[6px_6px_12px_#111827,-6px_-6px_12px_#374151]"; // dark gray shadows
+const DARK_INNER_SHADOW = "shadow-[inset_5px_5px_10px_#111827,inset_-5px_-5px_10px_#374151]";
+const DARK_BORDER = "border border-gray-700/30";
+
+interface CommonProps {
+  darkMode: boolean;
+}
+
+interface CardProps extends CommonProps {
   children: React.ReactNode;
   className?: string;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className = "" }) => {
+export const Card: React.FC<CardProps> = ({ children, className = "", darkMode }) => {
+  const themeClasses = darkMode 
+    ? `${DARK_BG} ${DARK_OUTER_SHADOW} ${DARK_BORDER} ${DARK_TEXT}`
+    : `${LIGHT_BG} ${LIGHT_OUTER_SHADOW} ${LIGHT_BORDER} text-gray-700`;
+
   return (
-    <div className={`bg-[#e0e5ec] rounded-[30px] ${OUTER_SHADOW} ${className}`}>
+    <div className={`rounded-[24px] transition-colors duration-300 ${themeClasses} ${className}`}>
       {children}
     </div>
   );
 };
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>, CommonProps {
   isActive?: boolean;
 }
 
-export const Button: React.FC<ButtonProps> = ({ children, className = "", isActive = false, ...props }) => {
-  const baseStyles = "px-6 py-3 rounded-xl font-bold transition-all duration-200 ease-in-out outline-none select-none text-[#4a5568]";
-  const shadowStyles = isActive 
-    ? `${INNER_SHADOW} text-indigo-500` 
-    : `${OUTER_SHADOW} active:${INNER_SHADOW} hover:-translate-y-0.5 active:translate-y-0`;
+export const Button: React.FC<ButtonProps> = ({ children, className = "", isActive = false, darkMode, ...props }) => {
+  const baseStyles = "px-6 py-3 rounded-xl font-bold transition-all duration-200 ease-in-out outline-none select-none flex items-center justify-center gap-2";
+  
+  let themeStyles = "";
+  
+  if (darkMode) {
+    // Dark Mode
+    const activeState = isActive ? `${DARK_INNER_SHADOW} text-indigo-400` : `${DARK_OUTER_SHADOW} active:${DARK_INNER_SHADOW} hover:-translate-y-0.5 active:translate-y-0 text-gray-200`;
+    themeStyles = `${DARK_BG} ${DARK_BORDER} ${activeState}`;
+  } else {
+    // Light Mode
+    const activeState = isActive ? `${LIGHT_INNER_SHADOW} text-indigo-600` : `${LIGHT_OUTER_SHADOW} active:${LIGHT_INNER_SHADOW} hover:-translate-y-0.5 active:translate-y-0 text-gray-700`;
+    themeStyles = `${LIGHT_BG} ${LIGHT_BORDER} ${activeState}`;
+  }
 
   return (
-    <button className={`${baseStyles} ${shadowStyles} ${className}`} {...props}>
+    <button className={`${baseStyles} ${themeStyles} ${className}`} {...props}>
       {children}
     </button>
   );
 };
 
-interface SliderProps extends InputHTMLAttributes<HTMLInputElement> {
+interface SliderProps extends InputHTMLAttributes<HTMLInputElement>, CommonProps {
   label: string;
   valueDisplay?: string | number;
 }
 
-export const Slider: React.FC<SliderProps> = ({ label, valueDisplay, className = "", ...props }) => {
+export const Slider: React.FC<SliderProps> = ({ label, valueDisplay, className = "", darkMode, ...props }) => {
+  // Dynamic styles for the range input based on theme
+  const trackColor = darkMode ? '#1f2937' : '#cbd5e0'; // gray-800 vs gray-300
+  const thumbColor = darkMode ? '#374151' : '#e2e8f0'; 
+  const shadowLight = darkMode ? '#374151' : '#ffffff';
+  const shadowDark = darkMode ? '#111827' : '#a0aec0';
+
   return (
-    <div className={`flex flex-col gap-2 ${className}`}>
+    <div className={`flex flex-col gap-3 ${className}`}>
       <div className="flex justify-between items-center px-1">
-        <label className="text-sm font-semibold text-gray-600">{label}</label>
-        <span className="text-xs font-mono text-gray-500">{valueDisplay}</span>
+        <label className={`text-sm font-bold tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>{label}</label>
+        <span className={`text-xs font-mono py-1 px-2 rounded-lg ${darkMode ? 'bg-gray-900 text-indigo-400 shadow-inner' : 'bg-gray-200 text-indigo-600 shadow-inner'}`}>
+          {valueDisplay}
+        </span>
       </div>
       <div className="relative h-8 flex items-center">
+        <style>{`
+          .slider-${darkMode ? 'dark' : 'light'}::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 10px;
+            background: ${darkMode ? '#1f2937' : '#e0e5ec'};
+            border-radius: 9999px;
+            box-shadow: inset 3px 3px 6px ${shadowDark}, inset -3px -3px 6px ${shadowLight};
+          }
+          .slider-${darkMode ? 'dark' : 'light'}::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 22px;
+            width: 22px;
+            border-radius: 50%;
+            background: ${darkMode ? '#374151' : '#e0e5ec'};
+            margin-top: -6px;
+            border: 1px solid ${darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.5)'};
+            box-shadow: 4px 4px 8px ${shadowDark}, -4px -4px 8px ${shadowLight};
+            cursor: pointer;
+            transition: transform 0.1s;
+          }
+          .slider-${darkMode ? 'dark' : 'light'}::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+          }
+        `}</style>
         <input 
           type="range" 
-          className="neu-slider w-full"
+          className={`range-input w-full slider-${darkMode ? 'dark' : 'light'}`}
           {...props} 
         />
       </div>
