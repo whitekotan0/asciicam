@@ -10,9 +10,9 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(true);
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  
   const [asciiMode, setAsciiMode] = useState<AsciiMode>('ENHANCED');
   
-  // Controls
   const [density, setDensity] = useState(80);
   const [contrast, setContrast] = useState(1.6);
   const [brightness, setBrightness] = useState(0.1);
@@ -21,7 +21,6 @@ const App: React.FC = () => {
   const [textColor, setTextColor] = useState('#00ff88');
   const [bgColor, setBgColor] = useState('#0a0e1a');
 
-  // Камера и канвасы
   const videoRef = useRef<HTMLVideoElement>(null);
   const hiddenCanvasRef = useRef<HTMLCanvasElement>(null);
   const renderCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -44,7 +43,6 @@ const App: React.FC = () => {
     const rect = container.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     
-    // ДИНАМИЧЕСКИЙ РАСЧЕТ СЕТКИ (Fix угла и пустых мест)
     const numCols = Math.floor(40 + (density / 100) * 160);
     const charWidth = rect.width / numCols;
     const charHeight = charWidth / FONT_ASPECT_RATIO;
@@ -120,7 +118,6 @@ const App: React.FC = () => {
       darkMode ? "bg-slate-900 text-white" : "bg-[#e0e5ec] text-gray-800"
     }`}>
       
-      {/* Header */}
       <header className="w-full max-w-5xl flex justify-between items-center px-2">
         <div className="flex items-center gap-3">
           <Settings2 className="w-8 h-8 text-emerald-400" />
@@ -131,34 +128,39 @@ const App: React.FC = () => {
         </Button>
       </header>
 
-      {/* Main Viewport (Адаптивный под телефон) */}
       <div className="w-full max-w-5xl aspect-video md:aspect-[16/9] relative">
         <Card darkMode={darkMode} className="w-full h-full p-2 md:p-4 overflow-hidden">
           <video ref={videoRef} className="hidden" playsInline muted />
           <canvas ref={hiddenCanvasRef} className="hidden" />
           <div className="w-full h-full rounded-2xl overflow-hidden bg-black relative shadow-inner">
             <canvas ref={renderCanvasRef} className="w-full h-full block" />
-            {!streaming && (
+            {!streaming && !error && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-md gap-4">
-                 <Button onClick={startCamera} darkMode={darkMode} className="!p-10 !rounded-full shadow-2xl">
+                 <Button onClick={startCamera} darkMode={darkMode} className="!p-10 !rounded-full">
                    <Play size={40} fill="currentColor" />
                  </Button>
-                 <p className="text-white/50 font-bold tracking-widest uppercase text-xs">Waiting for camera...</p>
+                 <p className="text-white/50 font-bold uppercase text-xs">Waiting for camera...</p>
+              </div>
+            )}
+            {error && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-900/20 backdrop-blur-md p-4 text-center">
+                <p className="text-red-400 font-bold">{error}</p>
+                <Button onClick={startCamera} darkMode={darkMode} className="mt-4">Retry</Button>
               </div>
             )}
           </div>
         </Card>
       </div>
 
-      {/* Controls Container (Раскладка для телефона) */}
       <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-12 gap-6">
-        
-        {/* Left Panel: Actions */}
         <Card darkMode={darkMode} className="md:col-span-3 p-6 flex flex-col gap-4">
            <Button darkMode={darkMode} onClick={streaming ? stopCamera : startCamera} isActive={streaming} className={streaming ? "text-red-500" : ""}>
              {streaming ? <Square size={20} /> : <Play size={20} />} {streaming ? "STOP" : "START"}
            </Button>
-           <Button darkMode={darkMode} onClick={() => setSnapshot(renderCanvasRef.current?.toDataURL())} disabled={!streaming}>
+           <Button darkMode={darkMode} onClick={() => {
+             const data = renderCanvasRef.current?.toDataURL();
+             if (data) setSnapshot(data);
+           }} disabled={!streaming}>
              <Camera size={20} /> SNAPSHOT
            </Button>
            <div className="grid grid-cols-3 gap-2 mt-2">
@@ -168,50 +170,55 @@ const App: React.FC = () => {
            </div>
         </Card>
 
-        {/* Right Panel: Settings */}
         <Card darkMode={darkMode} className="md:col-span-9 p-8 flex flex-col gap-8">
            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-6">
               <Slider label="Density" min="10" max="200" value={density} onChange={e => setDensity(+e.target.value)} darkMode={darkMode} />
               <Slider label="Contrast" min="0.5" max="3" step="0.1" value={contrast} onChange={e => setContrast(+e.target.value)} darkMode={darkMode} />
               <Slider label="Brightness" min="-0.5" max="0.5" step="0.05" value={brightness} onChange={e => setBrightness(+e.target.value)} darkMode={darkMode} />
-              
               <div className="flex flex-col gap-2">
-                <span className="text-[10px] font-black uppercase opacity-40">Custom Palette</span>
-                <div className="flex gap-4 h-full">
-                  <input type="color" value={textColor} onChange={e => setTextColor(e.target.value)} className="flex-1 h-10 rounded-lg cursor-pointer bg-transparent border-none shadow-md" />
-                  <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} className="flex-1 h-10 rounded-lg cursor-pointer bg-transparent border-none shadow-md" />
+                <span className="text-[10px] font-black uppercase opacity-40">Palette</span>
+                <div className="flex gap-4">
+                  <input type="color" value={textColor} onChange={e => setTextColor(e.target.value)} className="flex-1 h-10 rounded-lg cursor-pointer bg-transparent border-none" />
+                  <input type="color" value={bgColor} onChange={e => setBgColor(e.target.value)} className="flex-1 h-10 rounded-lg cursor-pointer bg-transparent border-none" />
                 </div>
               </div>
            </div>
 
-           {/* Custom Ramp Editor (Был урезан, теперь тут) */}
            {asciiMode === 'CUSTOM' && (
              <div className="flex flex-col gap-3 pt-4 border-t border-white/5">
                 <div className="flex justify-between items-center">
                    <label className="text-xs font-bold opacity-50 uppercase">Character Map Editor</label>
-                   <button onClick={() => setCustomRamp(CHAR_RAMPS.CUSTOM)} className="text-[10px] hover:text-emerald-400 flex items-center gap-1"><RefreshCw size={10}/> RESET</button>
+                   <div className="flex gap-2">
+                     <button onClick={() => setShowCustomEditor(!showCustomEditor)} className="text-[10px] hover:text-emerald-400 uppercase">
+                       {showCustomEditor ? 'Hide' : 'Edit'}
+                     </button>
+                     <button onClick={() => setCustomRamp(CHAR_RAMPS.CUSTOM)} className="text-[10px] hover:text-emerald-400 flex items-center gap-1 uppercase">
+                       <RefreshCw size={10}/> RESET
+                     </button>
+                   </div>
                 </div>
-                <textarea 
-                  value={customRamp} onChange={e => setCustomRamp(e.target.value)}
-                  className={`w-full p-4 rounded-xl font-mono text-sm resize-none h-20 ${darkMode ? "bg-black/50 text-emerald-400 border border-white/5" : "bg-white text-indigo-600 shadow-inner"}`}
-                />
+                {showCustomEditor && (
+                  <textarea 
+                    value={customRamp} onChange={e => setCustomRamp(e.target.value)}
+                    className={`w-full p-4 rounded-xl font-mono text-sm resize-none h-20 ${darkMode ? "bg-black/50 text-emerald-400 border border-white/5" : "bg-white text-indigo-600 shadow-inner"}`}
+                  />
+                )}
              </div>
            )}
         </Card>
       </div>
 
-      {/* Snapshot Modal */}
       {snapshot && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
-          <Card darkMode={darkMode} className="max-w-4xl w-full p-6 flex flex-col gap-6 shadow-2xl scale-in-center">
+          <Card darkMode={darkMode} className="max-w-4xl w-full p-6 flex flex-col gap-6 shadow-2xl">
              <div className="flex justify-between items-center">
                 <h2 className="text-xl font-black italic">PREVIEW_SNAPSHOT</h2>
                 <X className="cursor-pointer hover:text-red-500" onClick={() => setSnapshot(null)} />
              </div>
-             <img src={snapshot} alt="Preview" className="w-full rounded-xl border border-white/10 shadow-lg" />
+             <img src={snapshot} alt="Preview" className="w-full rounded-xl border border-white/10" />
              <div className="flex justify-end gap-4">
                 <Button darkMode={darkMode} onClick={() => setSnapshot(null)}>DISCARD</Button>
-                <Button darkMode={darkMode} onClick={downloadSnapshot} isActive className="!text-white"><Download size={20} /> DOWNLOAD</Button>
+                <Button darkMode={darkMode} onClick={downloadSnapshot} isActive><Download size={20} /> DOWNLOAD</Button>
              </div>
           </Card>
         </div>
@@ -220,4 +227,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App; 
+export default App;
