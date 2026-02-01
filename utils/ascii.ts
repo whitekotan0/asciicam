@@ -44,9 +44,15 @@ export const convertToAscii = (
   frameData: ImageData, 
   config: AsciiConfig
 ): string[] => {
-  const { width, height, contrast, brightness, inverted } = config;
+  const { contrast, brightness, inverted } = config;
   const data = frameData.data;
   const lines: string[] = [];
+
+  // CRITICAL FIX: Always use the actual width/height from the ImageData object
+  // to calculate pixel offsets. Using passed-in config dimensions can cause 
+  // diagonal skewing (scanline alignment issues) if they differ even by 1 pixel.
+  const width = frameData.width;
+  const height = frameData.height;
 
   for (let y = 0; y < height; y++) {
     let line = "";
