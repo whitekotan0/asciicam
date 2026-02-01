@@ -1,32 +1,38 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Play, Square, Camera, Settings2, Moon, Sun, Download, X } from 'lucide-react';
+import { Play, Square, Camera, Settings2, Moon, Sun, Download, X, Palette, Type, Sparkles } from 'lucide-react';
 import { Card, Button, Slider } from './components/NeumorphicUI';
-import { convertToAscii } from './utils/ascii';
+import { convertToAscii, CHAR_RAMPS, AsciiMode } from './utils/ascii';
 
-// Config constants
 const FONT_ASPECT_RATIO = 0.55; 
 const MAX_WIDTH_CHARS = 200; 
 const MIN_WIDTH_CHARS = 40;
 
 const App: React.FC = () => {
-  // --- State ---
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
   const [snapshot, setSnapshot] = useState<string | null>(null);
   
+  // Mode selection
+  const [asciiMode, setAsciiMode] = useState<AsciiMode>('ENHANCED');
+  
   // Controls
-  const [density, setDensity] = useState(100); 
-  const [contrast, setContrast] = useState(1.2);
-  const [brightness, setBrightness] = useState(0);
+  const [density, setDensity] = useState(80);
+  const [contrast, setContrast] = useState(1.6);
+  const [brightness, setBrightness] = useState(0.1);
+  
+  // Custom character ramp
+  const [customRamp, setCustomRamp] = useState(CHAR_RAMPS.CUSTOM);
+  const [showCustomEditor, setShowCustomEditor] = useState(false);
+  
+  // Color controls (for custom color mode)
+  const [textColor, setTextColor] = useState('#00ff88');
+  const [bgColor, setBgColor] = useState('#0a0e1a');
 
-  // --- Refs ---
   const videoRef = useRef<HTMLVideoElement>(null);
   const hiddenCanvasRef = useRef<HTMLCanvasElement>(null);
   const renderCanvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number | null>(null);
-  
-  // --- Helpers ---
   
   const getProcessingDimensions = useCallback((videoWidth: number, videoHeight: number) => {
     const charWidthCount = Math.floor(MIN_WIDTH_CHARS + (density / 100) * (MAX_WIDTH_CHARS - MIN_WIDTH_CHARS));
@@ -35,8 +41,6 @@ const App: React.FC = () => {
     return { width: charWidthCount, height: charHeightCount };
   }, [density]);
 
-  // --- Core Loop ---
-  
   const processFrame = useCallback(() => {
     const video = videoRef.current;
     const hiddenCtx = hiddenCanvasRef.current?.getContext('2d', { willReadFrequently: true });
@@ -61,21 +65,22 @@ const App: React.FC = () => {
       height,
       contrast,
       brightness,
-      inverted: darkMode // Dark mode = inverted logic (light pixels are chars)
+      inverted: darkMode,
+      mode: asciiMode,
+      customRamp: asciiMode === 'CUSTOM' ? customRamp : undefined
     });
 
-    // Render Config
     const canvasWidth = renderCanvas.width;
     const canvasHeight = renderCanvas.height;
     
-    // Theme Colors for Canvas
-    const bgColor = darkMode ? '#1f2937' : '#e0e5ec'; // gray-800 : gray-200-ish
-    const textColor = darkMode ? '#a5b4fc' : '#4a5568'; // indigo-300 : gray-700
+    // Use custom colors or default theme colors
+    const currentBg = darkMode ? bgColor : '#f5f5f5';
+    const currentText = darkMode ? textColor : '#1a1a1a';
     
-    renderCtx.fillStyle = bgColor;
+    renderCtx.fillStyle = currentBg;
     renderCtx.fillRect(0, 0, canvasWidth, canvasHeight);
     
-    renderCtx.fillStyle = textColor;
+    renderCtx.fillStyle = currentText;
     
     const charWidthPx = canvasWidth / width;
     const fontSize = charWidthPx / 0.6; 
@@ -88,11 +93,8 @@ const App: React.FC = () => {
     });
 
     requestRef.current = requestAnimationFrame(processFrame);
-  }, [contrast, brightness, getProcessingDimensions, darkMode]);
+  }, [contrast, brightness, getProcessingDimensions, darkMode, textColor, bgColor, asciiMode, customRamp]);
 
-  // --- Effects ---
-
-  // Handle Resize
   useEffect(() => {
     const handleResize = () => {
       if (renderCanvasRef.current && renderCanvasRef.current.parentElement) {
@@ -121,18 +123,15 @@ const App: React.FC = () => {
     };
   }, [streaming, processFrame]);
 
-  // Force re-render of canvas background when theme changes if not streaming
   useEffect(() => {
     if (!streaming && renderCanvasRef.current) {
         const renderCtx = renderCanvasRef.current.getContext('2d');
         if (renderCtx) {
-            renderCtx.fillStyle = darkMode ? '#1f2937' : '#e0e5ec';
+            renderCtx.fillStyle = darkMode ? bgColor : '#f5f5f5';
             renderCtx.fillRect(0, 0, renderCanvasRef.current.width, renderCanvasRef.current.height);
         }
     }
-  }, [darkMode, streaming]);
-
-  // --- Handlers ---
+  }, [darkMode, streaming, bgColor]);
 
   const startCamera = async () => {
     try {
@@ -176,14 +175,17 @@ const App: React.FC = () => {
     if (snapshot) {
       const link = document.createElement('a');
       link.href = snapshot;
-      link.download = `asciicam-${new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")}.png`;
+      link.download = `asciicam-${asciiMode.toLowerCase()}-${new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")}.png`;
       link.click();
     }
-  }, [snapshot]);
+  }, [snapshot, asciiMode]);
 
-  // Background Gradient Classes
+  const resetCustomRamp = () => {
+    setCustomRamp(CHAR_RAMPS.CUSTOM);
+  };
+
   const mainBgClass = darkMode 
-    ? "bg-gradient-to-br from-gray-900 to-gray-800 text-gray-200" 
+    ? "bg-gradient-to-br from-gray-900 via-slate-900 to-gray-800 text-gray-200" 
     : "bg-[#e0e5ec] text-gray-700";
 
   return (
@@ -192,10 +194,14 @@ const App: React.FC = () => {
       {/* Header */}
       <header className="w-full max-w-4xl flex items-center justify-between px-2">
         <div className="flex items-center gap-3">
-          <Settings2 className={`w-8 h-8 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
+          <Settings2 className={`w-8 h-8 ${darkMode ? 'text-emerald-400' : 'text-indigo-600'}`} />
           <div>
             <h1 className="text-3xl font-bold tracking-tight">AsciiCam</h1>
-            <p className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Real-time ASCII Renderer</p>
+            <p className={`text-sm font-medium ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              {asciiMode === 'MINIMAL' && 'Minimalist Mode'}
+              {asciiMode === 'ENHANCED' && 'Enhanced Mode'}
+              {asciiMode === 'CUSTOM' && 'Custom Mode'}
+            </p>
           </div>
         </div>
         <Button 
@@ -208,17 +214,50 @@ const App: React.FC = () => {
         </Button>
       </header>
 
+      {/* Mode Selector */}
+      <div className="w-full max-w-4xl">
+        <Card darkMode={darkMode} className="p-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+            <Button
+              darkMode={darkMode}
+              isActive={asciiMode === 'MINIMAL'}
+              onClick={() => setAsciiMode('MINIMAL')}
+              className="flex-1"
+            >
+              <Type className="w-5 h-5" />
+              Minimal (10 chars)
+            </Button>
+            <Button
+              darkMode={darkMode}
+              isActive={asciiMode === 'ENHANCED'}
+              onClick={() => setAsciiMode('ENHANCED')}
+              className="flex-1"
+            >
+              <Sparkles className="w-5 h-5" />
+              Enhanced (65 chars)
+            </Button>
+            <Button
+              darkMode={darkMode}
+              isActive={asciiMode === 'CUSTOM'}
+              onClick={() => setAsciiMode('CUSTOM')}
+              className="flex-1"
+            >
+              <Palette className="w-5 h-5" />
+              Custom + Colors
+            </Button>
+          </div>
+        </Card>
+      </div>
+
       {/* Main Viewport */}
       <Card 
         darkMode={darkMode}
         className="w-full max-w-4xl aspect-video relative overflow-hidden flex items-center justify-center p-4 transition-all duration-300"
       >
-        {/* Hidden Processing Elements */}
         <video ref={videoRef} className="hidden" playsInline muted />
         <canvas ref={hiddenCanvasRef} className="hidden" />
         
-        {/* Visible Canvas Container */}
-        <div className={`w-full h-full relative rounded-2xl overflow-hidden transition-colors duration-300 ${darkMode ? 'bg-gray-800 shadow-[inset_4px_4px_8px_#111827,inset_-4px_-4px_8px_#374151]' : 'bg-[#e0e5ec] shadow-[inset_5px_5px_10px_#bec3c9,inset_-5px_-5px_10px_#ffffff]'}`}>
+        <div className={`w-full h-full relative rounded-2xl overflow-hidden transition-colors duration-300 ${darkMode ? 'bg-slate-900 shadow-[inset_4px_4px_8px_#0a0a0a,inset_-4px_-4px_8px_#1e293b]' : 'bg-[#e0e5ec] shadow-[inset_5px_5px_10px_#bec3c9,inset_-5px_-5px_10px_#ffffff]'}`}>
            {!streaming && !error && (
              <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 gap-4 opacity-50">
                <Camera className="w-16 h-16" />
@@ -248,7 +287,7 @@ const App: React.FC = () => {
               darkMode={darkMode}
               onClick={streaming ? stopCamera : startCamera}
               isActive={streaming}
-              className={`w-full ${streaming ? 'text-red-500' : (darkMode ? 'text-indigo-400' : 'text-indigo-600')}`}
+              className={`w-full ${streaming ? 'text-red-500' : (darkMode ? 'text-emerald-400' : 'text-indigo-600')}`}
             >
               {streaming ? <Square className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
               {streaming ? "Stop Feed" : "Start Camera"}
@@ -265,13 +304,13 @@ const App: React.FC = () => {
           </Card>
         </div>
 
-        {/* Sliders */}
+        {/* Sliders & Controls */}
         <div className="md:col-span-9">
           <Card darkMode={darkMode} className="p-6 h-full flex flex-col justify-center gap-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Slider 
                 darkMode={darkMode}
-                label="Character Density" 
+                label="Density" 
                 min="0" max="100" 
                 value={density} 
                 onChange={(e) => setDensity(Number(e.target.value))}
@@ -293,11 +332,90 @@ const App: React.FC = () => {
                 onChange={(e) => setBrightness(Number(e.target.value))}
                 valueDisplay={brightness.toFixed(2)}
               />
-              <div className={`flex items-center justify-between text-sm px-1 pt-6 ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                <span>FPS target: 60</span>
-                <span>Mode: Monospace Canvas</span>
-              </div>
+              
+              {/* Show info for Minimal and Enhanced modes */}
+              {asciiMode !== 'CUSTOM' && (
+                <div className={`flex items-center justify-center text-sm font-mono p-4 rounded-lg ${darkMode ? 'bg-gray-900 text-gray-400' : 'bg-gray-200 text-gray-600'}`}>
+                  <span>
+                    {asciiMode === 'MINIMAL' && `Characters: ${CHAR_RAMPS.MINIMAL}`}
+                    {asciiMode === 'ENHANCED' && `${CHAR_RAMPS.ENHANCED.length} unique chars`}
+                  </span>
+                </div>
+              )}
+              
+              {/* Custom Mode Controls */}
+              {asciiMode === 'CUSTOM' && darkMode && (
+                <>
+                  <div className="flex flex-col gap-3">
+                    <label className="text-sm font-bold tracking-wide text-gray-400">Text Color</label>
+                    <input 
+                      type="color" 
+                      value={textColor}
+                      onChange={(e) => setTextColor(e.target.value)}
+                      className="w-full h-10 rounded-lg cursor-pointer border-2 border-gray-700"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <label className="text-sm font-bold tracking-wide text-gray-400">BG Color</label>
+                    <input 
+                      type="color" 
+                      value={bgColor}
+                      onChange={(e) => setBgColor(e.target.value)}
+                      className="w-full h-10 rounded-lg cursor-pointer border-2 border-gray-700"
+                    />
+                  </div>
+                </>
+              )}
             </div>
+            
+            {/* Custom Character Ramp Editor */}
+            {asciiMode === 'CUSTOM' && (
+              <div className="mt-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <label className={`text-sm font-bold tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Custom Characters ({customRamp.length} chars)
+                  </label>
+                  <div className="flex gap-2">
+                    <Button
+                      darkMode={darkMode}
+                      onClick={() => setShowCustomEditor(!showCustomEditor)}
+                      className="!px-3 !py-1 !text-xs"
+                    >
+                      {showCustomEditor ? 'Hide' : 'Edit'}
+                    </Button>
+                    <Button
+                      darkMode={darkMode}
+                      onClick={resetCustomRamp}
+                      className="!px-3 !py-1 !text-xs"
+                    >
+                      Reset
+                    </Button>
+                  </div>
+                </div>
+                
+                {showCustomEditor && (
+                  <textarea
+                    value={customRamp}
+                    onChange={(e) => setCustomRamp(e.target.value)}
+                    className={`w-full p-3 rounded-lg font-mono text-sm resize-none ${
+                      darkMode 
+                        ? 'bg-gray-900 text-gray-200 border-2 border-gray-700' 
+                        : 'bg-white text-gray-800 border-2 border-gray-300'
+                    }`}
+                    rows={3}
+                    placeholder="Enter characters from lightest to darkest..."
+                  />
+                )}
+                
+                {!showCustomEditor && (
+                  <div className={`p-3 rounded-lg font-mono text-xs break-all ${
+                    darkMode ? 'bg-gray-900 text-gray-400' : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {customRamp}
+                  </div>
+                )}
+              </div>
+            )}
           </Card>
         </div>
       </div>
@@ -322,7 +440,7 @@ const App: React.FC = () => {
                  <Button darkMode={darkMode} onClick={() => setSnapshot(null)}>
                     Discard
                  </Button>
-                 <Button darkMode={darkMode} onClick={downloadSnapshot} className="!text-indigo-500">
+                 <Button darkMode={darkMode} onClick={downloadSnapshot} className={`${darkMode ? '!text-emerald-400' : '!text-indigo-500'}`}>
                     <Download className="w-5 h-5" />
                     Download
                  </Button>

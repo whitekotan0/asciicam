@@ -1,40 +1,52 @@
 /**
- * Standard ASCII character ramp.
- * Index 0 = ' ' (Visual Empty/Low density)
- * Index Max = '@' (Visual Full/High density)
+ * ASCII Character Ramps for different modes
  */
-const CHAR_RAMP = " .:-=+*#%@";
+export const CHAR_RAMPS = {
+  // Minimalistic - 10 characters
+  MINIMAL: " .:-=+*#%@",
+  
+  // Enhanced - 65 characters for smooth gradients
+  ENHANCED: " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@█",
+  
+  // Custom - user can edit this
+  CUSTOM: " .:-=+*#%@"
+};
+
+export type AsciiMode = 'MINIMAL' | 'ENHANCED' | 'CUSTOM';
 
 export interface AsciiConfig {
   width: number;
   height: number;
-  contrast: number; // 0 to 2
-  brightness: number; // -1 to 1
-  inverted: boolean; // true = Dark Mode (Light pixels are characters), false = Light Mode (Dark pixels are characters)
+  contrast: number;
+  brightness: number;
+  inverted: boolean;
+  mode: AsciiMode;
+  customRamp?: string;
 }
 
 /**
  * Calculates the ASCII character for a given value.
  */
-const getChar = (value: number, contrast: number, brightness: number): string => {
-  // 1. Normalize to 0-1
+const getChar = (value: number, contrast: number, brightness: number, ramp: string): string => {
+  // Safety check
+  if (!ramp || ramp.length === 0) return ' ';
+  
   let norm = value / 255;
-
-  // 2. Apply Brightness
   norm += brightness;
-
-  // 3. Apply Contrast
-  // Center around 0.5
+  
   if (contrast !== 1) {
     norm = (norm - 0.5) * contrast + 0.5;
   }
-
-  // 4. Clamp
+  
+  // Apply gamma correction for enhanced mode
+  norm = Math.pow(norm, 0.9);
   norm = Math.max(0, Math.min(1, norm));
 
-  // 5. Map to Character Ramp
-  const index = Math.floor(norm * (CHAR_RAMP.length - 1));
-  return CHAR_RAMP[index];
+  const index = Math.floor(norm * (ramp.length - 1));
+  const char = ramp[index];
+  
+  // Fallback to space if character is undefined
+  return char !== undefined ? char : ' ';
 };
 
 /**
@@ -44,13 +56,23 @@ export const convertToAscii = (
   frameData: ImageData, 
   config: AsciiConfig
 ): string[] => {
-  const { contrast, brightness, inverted } = config;
+  const { contrast, brightness, inverted, mode, customRamp } = config;
   const data = frameData.data;
   const lines: string[] = [];
 
-  // CRITICAL FIX: Always use the actual width/height from the ImageData object
-  // to calculate pixel offsets. Using passed-in config dimensions can cause 
-  // diagonal skewing (scanline alignment issues) if they differ even by 1 pixel.
+  // Select character ramp based on mode
+  let charRamp: string;
+  if (mode === 'CUSTOM' && customRamp && customRamp.length > 0) {
+    charRamp = customRamp;
+  } else {
+    charRamp = CHAR_RAMPS[mode] || CHAR_RAMPS.MINIMAL;
+  }
+  
+  // Ensure we have a valid ramp
+  if (!charRamp || charRamp.length === 0) {
+    charRamp = CHAR_RAMPS.MINIMAL;
+  }
+
   const width = frameData.width;
   const height = frameData.height;
 
@@ -63,21 +85,10 @@ export const convertToAscii = (
       const b = data[offset + 2];
 
       // Calculate Luma
-      const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-
-      // Mode Logic:
-      // Dark Mode (inverted=true): Black BG. We want White pixels to be '@' (High index). 
-      //   Input 255 (White) -> target high index. 
-      //   Input 0 (Black) -> target low index.
-      //   So we use 'gray' directly.
-      // Light Mode (inverted=false): White BG. We want Dark pixels to be '@' (ink).
-      //   Input 255 (White) -> target low index (Space).
-      //   Input 0 (Black) -> target high index.
-      //   So we use '255 - gray'.
-      
+      const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
       const targetValue = inverted ? gray : 255 - gray;
 
-      line += getChar(targetValue, contrast, brightness);
+      line += getChar(targetValue, contrast, brightness, charRamp);
     }
     lines.push(line);
   }
